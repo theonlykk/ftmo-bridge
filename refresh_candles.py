@@ -50,7 +50,7 @@ MT5_TO_DB = {
 
 # How many bars to request per granularity
 # MT5 terminal cache depth — request generously, broker caps it
-BARS_TO_FETCH = 100_000
+BARS_TO_FETCH = 99_999
 
 # ── LOGGING ───────────────────────────────────────────────────────────────────
 logging.basicConfig(
