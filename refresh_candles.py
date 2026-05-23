@@ -27,10 +27,13 @@ MT5_SERVER   = os.getenv("MT5_SERVER", "FTMO-Demo")
 MT5_PASSWORD = os.getenv("MT5_PASSWORD", "")
 DATABASE_URL = os.getenv("DATABASE_URL", "")
 
-# Instruments to backfill — MT5 format
+# MT5 format (no underscore)
 INSTRUMENTS = [
-    "AUDUSD", "NZDUSD", "USDCHF", "USDJPY",
-    "USDCAD", "CADJPY", "AUDJPY", "EURJPY", "GBPAUD"
+    "AUDUSD", "NZDUSD", "USDCHF", "USDJPY", "USDCAD", "EURUSD", "GBPUSD",
+    "AUDJPY", "CADJPY", "EURJPY", "GBPJPY", "NZDJPY", "CHFJPY",
+    "EURAUD", "EURCAD", "EURCHF", "EURGBP", "EURNZD",
+    "GBPAUD", "GBPCAD", "GBPCHF", "GBPNZD",
+    "AUDCAD", "AUDNZD", "NZDCAD", "CADCHF",
 ]
 
 # Granularities to backfill
@@ -44,8 +47,14 @@ GRANULARITIES = {
 # MT5 symbol → DB instrument format
 MT5_TO_DB = {
     "AUDUSD": "AUD_USD", "NZDUSD": "NZD_USD", "USDCHF": "USD_CHF",
-    "USDJPY": "USD_JPY", "USDCAD": "USD_CAD", "CADJPY": "CAD_JPY",
-    "AUDJPY": "AUD_JPY", "EURJPY": "EUR_JPY", "GBPAUD": "GBP_AUD"
+    "USDJPY": "USD_JPY", "USDCAD": "USD_CAD", "EURUSD": "EUR_USD",
+    "GBPUSD": "GBP_USD", "AUDJPY": "AUD_JPY", "CADJPY": "CAD_JPY",
+    "EURJPY": "EUR_JPY", "GBPJPY": "GBP_JPY", "NZDJPY": "NZD_JPY",
+    "CHFJPY": "CHF_JPY", "EURAUD": "EUR_AUD", "EURCAD": "EUR_CAD",
+    "EURCHF": "EUR_CHF", "EURGBP": "EUR_GBP", "EURNZD": "EUR_NZD",
+    "GBPAUD": "GBP_AUD", "GBPCAD": "GBP_CAD", "GBPCHF": "GBP_CHF",
+    "GBPNZD": "GBP_NZD", "AUDCAD": "AUD_CAD", "AUDNZD": "AUD_NZD",
+    "NZDCAD": "NZD_CAD", "CADCHF": "CAD_CHF",
 }
 
 # How many bars to request per granularity
