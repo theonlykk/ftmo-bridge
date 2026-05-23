@@ -146,6 +146,16 @@ def upsert_bars(conn, rows):
     return len(rows)
 
 
+def already_loaded(conn, instrument, granularity, min_rows=90000):
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT COUNT(*) FROM ftmo_candles WHERE instrument = %s AND granularity = %s",
+            (instrument, granularity)
+        )
+        count = cur.fetchone()[0]
+    return count >= min_rows
+
+
 # ── MAIN ──────────────────────────────────────────────────────────────────────
 def main():
     start = time.time()
@@ -173,6 +183,9 @@ def main():
             continue
 
         for gran_label, gran_const in GRANULARITIES.items():
+            if already_loaded(conn, MT5_TO_DB[symbol], gran_label):
+                log.info(f"  {symbol} {gran_label}: already loaded — skipping")
+                continue
             rows = fetch_bars(symbol, gran_const, gran_label)
             n = upsert_bars(conn, rows)
             total_rows += n
