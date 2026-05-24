@@ -6,6 +6,7 @@ Publishes trade_confirm / trade_reject / account_state via ZMQ PUB (upstream).
 Zero candlelab-core dependencies. Dumb executor.
 """
 
+import base64
 import os
 import json
 import time
@@ -64,9 +65,9 @@ def build_sockets(ctx):
     """
     # --- Downstream SUB ---
     sub = ctx.socket(zmq.SUB)
-    sub.curve_publickey  = BRIDGE_PUBLIC_KEY.encode()
-    sub.curve_secretkey  = BRIDGE_SECRET_KEY.encode()
-    sub.curve_serverkey  = RAILWAY_PUBLIC_KEY.encode()
+    sub.curve_publickey  = base64.b64decode(BRIDGE_PUBLIC_KEY)
+    sub.curve_secretkey  = base64.b64decode(BRIDGE_SECRET_KEY)
+    sub.curve_serverkey  = base64.b64decode(RAILWAY_PUBLIC_KEY)
     sub.setsockopt(zmq.SUBSCRIBE, b"")
     sub.setsockopt(zmq.RCVTIMEO, 1000)   # 1s timeout so loop stays responsive
     sub.connect(f"tcp://{RAILWAY_HOST}:{DOWNSTREAM_PORT}")
@@ -74,8 +75,8 @@ def build_sockets(ctx):
 
     # --- Upstream PUB ---
     pub = ctx.socket(zmq.PUB)
-    pub.curve_publickey  = BRIDGE_PUBLIC_KEY.encode()
-    pub.curve_secretkey  = BRIDGE_SECRET_KEY.encode()
+    pub.curve_publickey  = base64.b64decode(BRIDGE_PUBLIC_KEY)
+    pub.curve_secretkey  = base64.b64decode(BRIDGE_SECRET_KEY)
     pub.curve_server     = True
     pub.bind(f"tcp://0.0.0.0:{UPSTREAM_PORT}")
     log.info(f"Upstream PUB bound to tcp://0.0.0.0:{UPSTREAM_PORT}")

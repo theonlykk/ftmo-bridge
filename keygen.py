@@ -4,12 +4,12 @@ Run once. Copy output into Railway env vars and local .env file.
 Never commit keys to repo.
 """
 
+import base64
 import zmq
-import os
 
 def generate_keypair(name):
     public, secret = zmq.curve_keypair()
-    return public.decode(), secret.decode()
+    return base64.b64encode(public).decode(), base64.b64encode(secret).decode()
 
 def main():
     print("\n" + "="*60)
