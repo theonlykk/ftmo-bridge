@@ -12,6 +12,7 @@ import json
 import time
 import logging
 import threading
+import sys
 from datetime import datetime, timezone
 from logging.handlers import RotatingFileHandler
 from dotenv import load_dotenv
@@ -339,6 +340,10 @@ def main():
         ctx.term()
         mt5.shutdown()
         log.info("Bridge shutdown complete")
+
+    # Force non-zero exit outside the try/finally block so Task Scheduler restarts it,
+    # but unhandled exceptions still print their tracebacks natively.
+    sys.exit(1)
 
 
 if __name__ == "__main__":
