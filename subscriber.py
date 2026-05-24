@@ -67,11 +67,11 @@ def build_sockets(ctx):
     sub = ctx.socket(zmq.SUB)
     sub.curve_publickey  = base64.b64decode(BRIDGE_PUBLIC_KEY)
     sub.curve_secretkey  = base64.b64decode(BRIDGE_SECRET_KEY)
-    sub.curve_serverkey  = base64.b64decode(RAILWAY_PUBLIC_KEY)
+    sub.curve_server     = True
     sub.setsockopt(zmq.SUBSCRIBE, b"")
     sub.setsockopt(zmq.RCVTIMEO, 1000)   # 1s timeout so loop stays responsive
-    sub.connect(f"tcp://{RAILWAY_HOST}:{DOWNSTREAM_PORT}")
-    log.info(f"Downstream SUB connected to tcp://{RAILWAY_HOST}:{DOWNSTREAM_PORT}")
+    sub.bind(f"tcp://0.0.0.0:{DOWNSTREAM_PORT}")
+    log.info(f"Downstream SUB bound to tcp://0.0.0.0:{DOWNSTREAM_PORT}")
 
     # --- Upstream PUB ---
     pub = ctx.socket(zmq.PUB)
