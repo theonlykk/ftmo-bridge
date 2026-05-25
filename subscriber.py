@@ -137,6 +137,20 @@ def publish_account_state(pub_sock):
                     "magic":       d.magic,
                 }
 
+    active_symbols = [s.name for s in mt5.symbols_get() if s.visible]
+    live_quotes = {}
+    for sym in active_symbols:
+        tick = mt5.symbol_info_tick(sym)
+        info = mt5.symbol_info(sym)
+        if tick is None or info is None:
+            continue
+        live_quotes[sym] = {
+            "bid":        tick.bid,
+            "ask":        tick.ask,
+            "tick_value": info.trade_tick_value,
+            "tick_size":  info.trade_tick_size,
+        }
+
     publish(pub_sock, {
         "msg_type":       "account_state",
         "equity":         acc.equity,
@@ -144,6 +158,7 @@ def publish_account_state(pub_sock):
         "margin_free":    acc.margin_free,
         "open_positions": open_positions,
         "recent_deals":   recent_deals,
+        "live_quotes":    live_quotes,
         "ts":             utcnow()
     })
 
