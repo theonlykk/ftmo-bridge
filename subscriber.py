@@ -422,6 +422,7 @@ def main():
 
     except KeyboardInterrupt:
         log.info("Keyboard interrupt — shutting down")
+        sys.exit(1)
     finally:
         stop_event.set()
         sub_sock.close()
