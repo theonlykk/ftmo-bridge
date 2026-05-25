@@ -167,6 +167,8 @@ def mt5_connect():
 def is_stale(payload):
     sym = payload["mt5_symbol"]
     sig_close = payload["sig_close"]
+    # Ensure symbol is selected in Market Watch to receive ticks
+    mt5.symbol_select(sym, True)
     tick = mt5.symbol_info_tick(sym)
     if tick is None:
         log.warning(f"No tick for {sym} — treating as stale")
