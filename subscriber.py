@@ -103,13 +103,48 @@ def publish_account_state(pub_sock):
             "ts": utcnow()
         })
         return
+
+    # Build open positions snapshot for reconciliation
+    positions = mt5.positions_get()
+    open_positions = {}
+    if positions:
+        for p in positions:
+            open_positions[p.ticket] = {
+                "ticket":     p.ticket,
+                "symbol":     p.symbol,
+                "volume":     p.volume,
+                "price_open": p.price_open,
+                "profit":     p.profit,
+                "magic":      p.magic,
+            }
+
+    # Build recent deals snapshot (last 120 seconds) for close reconciliation
+    from datetime import datetime, timezone, timedelta
+    now_utc = datetime.now(timezone.utc)
+    from_dt = now_utc - timedelta(seconds=120)
+    deals = mt5.history_deals_get(from_dt, now_utc)
+    recent_deals = {}
+    if deals:
+        for d in deals:
+            if d.entry == 1:  # entry=1 means closing deal
+                recent_deals[d.position_id] = {
+                    "ticket":      d.ticket,
+                    "position_id": d.position_id,
+                    "symbol":      d.symbol,
+                    "price":       d.price,
+                    "profit":      d.profit,
+                    "time":        d.time,
+                    "magic":       d.magic,
+                }
+
     publish(pub_sock, {
-        "msg_type":     "account_state",
-        "equity":       acc.equity,
-        "balance":      acc.balance,
-        "margin_free":  acc.margin_free,
-        "open_positions": mt5.positions_total(),
-        "ts":           utcnow()
+        "msg_type":       "account_state",
+        "equity":         acc.equity,
+        "balance":        acc.balance,
+        "margin_free":    acc.margin_free,
+        "open_positions": open_positions,
+        "recent_deals":   recent_deals,
+        "ts":             utcnow()
     })
 
 
