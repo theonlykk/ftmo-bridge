@@ -176,6 +176,7 @@ def publish_confirm(pub_sock, payload, result):
         "sl":                payload["sl"],
         "tp":                payload["tp"],
         "mt5_symbol":        payload["mt5_symbol"],
+        "instrument":        payload.get("instrument"),
         "direction":         payload["direction"],
         "status":            "filled",
         "ts":                utcnow()
