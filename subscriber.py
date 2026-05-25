@@ -211,6 +211,9 @@ def is_stale(payload):
     info = mt5.symbol_info(sym)
     pip = info.point * 10
     mid = (tick.bid + tick.ask) / 2
+    if mid <= 0:
+        log.warning(f"Zero mid price for {sym} — skipping stale check, proceeding with order")
+        return False
     distance_pips = abs(mid - sig_close) / pip
     if distance_pips > STALE_THRESHOLD_PIPS:
         log.warning(
