@@ -271,11 +271,44 @@ def execute_order(pub_sock, payload):
             return
 
         if result.retcode == mt5.TRADE_RETCODE_DONE:
+            # IOC fills often return deal=0 and price=0.0 on initial response
+            # Query MT5 history to get real deal ticket and fill price
+            real_deal = result.deal
+            real_price = result.price
+            if real_deal == 0 or real_price == 0.0:
+                import time as _time
+                _time.sleep(0.2)  # brief wait for MT5 to record the deal
+                deals = mt5.history_deals_get(position=result.order)
+                if deals:
+                    opening_deals = [d for d in deals if d.entry == 0]
+                    if opening_deals:
+                        best = opening_deals[-1]
+                        real_deal = best.ticket
+                        real_price = best.price
+                        log.info(
+                            f"Deal resolved via history | deal={real_deal} "
+                            f"price={real_price} order={result.order}"
+                        )
+                    else:
+                        log.warning(
+                            f"No opening deal found in history for order={result.order}"
+                        )
+                else:
+                    log.warning(
+                        f"history_deals_get returned None for order={result.order}"
+                    )
+
+            class _PatchedResult:
+                order = result.order
+                deal = real_deal
+                price = real_price
+                volume = result.volume
+
             log.info(
-                f"Filled ({label}) | order={result.order} deal={result.deal} "
-                f"price={result.price} vol={result.volume}"
+                f"Filled ({label}) | order={result.order} deal={real_deal} "
+                f"price={real_price} vol={result.volume}"
             )
-            publish_confirm(pub_sock, payload, result)
+            publish_confirm(pub_sock, payload, _PatchedResult())
             return
 
         if result.retcode == 10030:
