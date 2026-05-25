@@ -118,10 +118,10 @@ def publish_account_state(pub_sock):
                 "magic":      p.magic,
             }
 
-    # Build recent deals snapshot (last 120 seconds) for close reconciliation
+    # Build recent deals snapshot (last 48 hours) for close reconciliation
     from datetime import datetime, timezone, timedelta
     now_utc = datetime.now(timezone.utc)
-    from_dt = now_utc - timedelta(seconds=120)
+    from_dt = now_utc - timedelta(hours=48)
     deals = mt5.history_deals_get(from_dt, now_utc)
     recent_deals = {}
     if deals:
