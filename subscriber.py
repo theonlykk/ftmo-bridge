@@ -280,6 +280,80 @@ def build_request(payload, filling_mode):
     }
 
 
+def close_position(pub_sock, payload):
+    """Close an existing MT5 position by ticket — used for timeout exits."""
+    sym        = payload["mt5_symbol"]
+    ticket     = int(payload["mt5_ticket"])
+    volume     = float(payload["volume"])
+    direction  = payload["direction"].lower()
+    reason     = payload.get("reason", "timeout")
+
+    tick = mt5.symbol_info_tick(sym)
+    if tick is None:
+        log.error(f"close_position: no tick for {sym} | ticket={ticket}")
+        publish(pub_sock, {
+            "msg_type":   "close_reject",
+            "mt5_ticket": ticket,
+            "reason":     f"no tick for {sym}",
+            "ts":         utcnow(),
+        })
+        return
+
+    if direction == "long":
+        close_type  = mt5.ORDER_TYPE_SELL
+        close_price = tick.bid
+    else:
+        close_type  = mt5.ORDER_TYPE_BUY
+        close_price = tick.ask
+
+    close_request = {
+        "action":       mt5.TRADE_ACTION_DEAL,
+        "symbol":       sym,
+        "volume":       volume,
+        "type":         close_type,
+        "position":     ticket,
+        "price":        close_price,
+        "deviation":    10,
+        "magic":        int(payload.get("magic", 0)),
+        "comment":      f"candlelab_{reason}",
+        "type_time":    mt5.ORDER_TIME_GTC,
+        "type_filling": mt5.ORDER_FILLING_IOC,
+    }
+
+    log.info(f"Closing position | {sym} ticket={ticket} dir={direction} vol={volume} price={close_price:.5f}")
+    result = mt5.order_send(close_request)
+
+    if result is None:
+        err = mt5.last_error()
+        log.error(f"close_position: order_send None | {err}")
+        publish(pub_sock, {
+            "msg_type":   "close_reject",
+            "mt5_ticket": ticket,
+            "reason":     str(err),
+            "ts":         utcnow(),
+        })
+        return
+
+    if result.retcode == mt5.TRADE_RETCODE_DONE:
+        log.info(f"Position closed | ticket={ticket} retcode={result.retcode}")
+        publish(pub_sock, {
+            "msg_type":     "close_confirm",
+            "mt5_ticket":   ticket,
+            "filled_price": result.price,
+            "volume":       result.volume,
+            "reason":       reason,
+            "ts":           utcnow(),
+        })
+    else:
+        log.warning(f"close_position failed | retcode={result.retcode} | {result.comment}")
+        publish(pub_sock, {
+            "msg_type":   "close_reject",
+            "mt5_ticket": ticket,
+            "reason":     f"retcode={result.retcode} {result.comment}",
+            "ts":         utcnow(),
+        })
+
+
 def execute_order(pub_sock, payload):
     sym = payload["mt5_symbol"]
     log.info(
@@ -426,6 +500,12 @@ def main():
 
             log.info(f"Received payload: {json.dumps(msg)}")
 
+            # Route 1: Position close — bypass validation and stale price checks
+            if msg.get("action") == "close_position":
+                close_position(pub_sock, msg)
+                continue
+
+            # Route 2: Standard order execution
             if not validate(msg):
                 publish_reject(pub_sock, msg, -2, "Payload validation failed")
                 continue
