@@ -215,29 +215,45 @@ def mt5_connect():
 
 
 # ── STALE ORDER CHECK ─────────────────────────────────────────────────────────
-def is_stale(payload):
+# Stale check state constants
+TICK_VALID            = "VALID"
+TICK_STALE_NO_TICK    = "STALE_NO_TICK"
+TICK_STALE_PRICE      = "STALE_PRICE_MOVED"
+
+TICK_AGE_THRESHOLD_SECS = 300  # 5 minutes — older tick treated as no live quote
+
+def check_tick_state(payload) -> str:
+    import time as _time
     sym = payload["mt5_symbol"]
     sig_close = payload["sig_close"]
-    # Ensure symbol is selected in Market Watch to receive ticks
     mt5.symbol_select(sym, True)
     tick = mt5.symbol_info_tick(sym)
+
     if tick is None:
-        log.warning(f"No tick for {sym} — treating as stale")
-        return True
+        log.warning(f"No tick for {sym} — STALE_NO_TICK")
+        return TICK_STALE_NO_TICK
+
+    tick_age_secs = _time.time() - tick.time
+    if tick_age_secs > TICK_AGE_THRESHOLD_SECS:
+        log.warning(f"Tick age {tick_age_secs:.0f}s > {TICK_AGE_THRESHOLD_SECS}s for {sym} — STALE_NO_TICK")
+        return TICK_STALE_NO_TICK
+
     info = mt5.symbol_info(sym)
     pip = info.point * 10
     mid = (tick.bid + tick.ask) / 2
     if mid <= 0:
-        log.warning(f"Zero mid price for {sym} — skipping stale check, proceeding with order")
-        return False
+        log.warning(f"Zero mid price for {sym} — treating as VALID, proceeding")
+        return TICK_VALID
+
     distance_pips = abs(mid - sig_close) / pip
     if distance_pips > STALE_THRESHOLD_PIPS:
         log.warning(
-            f"Stale order rejected | {sym} | sig_close={sig_close} "
-            f"mid={mid:.5f} | distance={distance_pips:.1f}p > {STALE_THRESHOLD_PIPS}p"
+            f"Price moved | {sym} | sig_close={sig_close} "
+            f"mid={mid:.5f} | distance={distance_pips:.1f}p > {STALE_THRESHOLD_PIPS}p — STALE_PRICE_MOVED"
         )
-        return True
-    return False
+        return TICK_STALE_PRICE
+
+    return TICK_VALID
 
 
 # ── ORDER EXECUTION ───────────────────────────────────────────────────────────
@@ -414,9 +430,23 @@ def main():
                 publish_reject(pub_sock, msg, -2, "Payload validation failed")
                 continue
 
-            if is_stale(msg):
+            _tick_state = check_tick_state(msg)
+            if _tick_state == TICK_STALE_PRICE:
                 publish_reject(pub_sock, msg, -3, "Stale order — price moved beyond threshold")
                 continue
+            if _tick_state == TICK_STALE_NO_TICK:
+                for _attempt in range(1, 4):
+                    time.sleep(0.5)
+                    _tick_state = check_tick_state(msg)
+                    log.info(f"Stale retry {_attempt}/3 | {msg.get('mt5_symbol')} | state={_tick_state}")
+                    if _tick_state != TICK_STALE_NO_TICK:
+                        break
+                if _tick_state == TICK_STALE_NO_TICK:
+                    publish_reject(pub_sock, msg, -3, "Stale order — no tick after 3 retries")
+                    continue
+                if _tick_state == TICK_STALE_PRICE:
+                    publish_reject(pub_sock, msg, -3, "Stale order — price moved after tick arrived")
+                    continue
 
             execute_order(pub_sock, msg)
 
