@@ -500,6 +500,38 @@ def main():
 
             log.info(f"Received payload: {json.dumps(msg)}")
 
+            # ── ADR-075: admin_sweep interceptor ──────────────────────────
+            if msg.get("topic") == "admin_sweep":
+                if msg.get("action") == "request_closing_deals":
+                    tickets = msg.get("position_tickets", [])
+                    closing_deals = []
+                    for ticket in tickets:
+                        try:
+                            deals = mt5.history_deals_get(position=int(ticket))
+                            if deals:
+                                for deal in deals:
+                                    if deal.entry == 1:  # DEAL_ENTRY_OUT
+                                        closing_deals.append({
+                                            "position_ticket": ticket,
+                                            "exit_price": float(deal.price),
+                                            "profit": float(deal.profit),
+                                        })
+                                        break
+                        except Exception as e:
+                            log.error(f"admin_sweep: MT5 history query failed for ticket {ticket}: {e}")
+                    response = {
+                        "topic": "admin_sweep",
+                        "action": "response_closing_deals",
+                        "deals": closing_deals,
+                    }
+                    try:
+                        pub_sock.send_json(response)
+                        log.info(f"admin_sweep: sent {len(closing_deals)} closing deals upstream")
+                    except Exception as e:
+                        log.error(f"admin_sweep: upstream send failed: {e}")
+                continue  # bypass all order execution logic
+            # ── end admin_sweep interceptor ───────────────────────────────
+
             # Route 1: Position close — bypass validation and stale price checks
             if msg.get("action") == "close_position":
                 close_position(pub_sock, msg)
