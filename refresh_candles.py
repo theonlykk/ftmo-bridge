@@ -154,6 +154,13 @@ def fetch_bars_mt5(symbol, timeframe_const, granularity_label, from_dt):
     end_dt = datetime.now(tz=timezone.utc)
     rates = mt5.copy_rates_range(symbol, timeframe_const, from_dt, end_dt)
 
+    if rates is None:
+        log.warning(
+            f"  {symbol} {granularity_label}: copy_rates_range returned None "
+            f"— retrying with copy_rates_from_pos"
+        )
+        rates = mt5.copy_rates_from_pos(symbol, timeframe_const, 0, 99999)
+
     if rates is None or len(rates) == 0:
         log.warning(f"  {symbol} {granularity_label}: no bars returned from MT5")
         return []
